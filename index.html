@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professional Auth & Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600&display=swap" rel="stylesheet">
+    
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+
+    <style>
+        body { font-family: 'Hind Siliguri', sans-serif; }
+        .glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2); }
+        .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(255, 255, 255, 0.98); backdrop-filter: blur(10px); border-top: 1px solid #e5e7eb; display: flex; justify-content: space-around; padding: 12px 0; z-index: 1000; }
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .product-card { transition: all 0.3s ease; cursor: pointer; }
+        .product-card:active { transform: scale(0.95); }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-600 to-indigo-900 min-h-screen flex items-center justify-center p-4">
+
+    <div id="auth-container" class="glass w-full max-w-md p-8 rounded-3xl shadow-2xl">
+        <div class="flex mb-8 bg-gray-100 p-1 rounded-xl">
+            <button onclick="toggleForm('login')" id="login-tab" class="w-1/2 py-2 text-sm font-semibold rounded-lg bg-white shadow-sm text-blue-600 transition-all">লগইন</button>
+            <button onclick="toggleForm('register')" id="register-tab" class="w-1/2 py-2 text-sm font-semibold rounded-lg text-gray-500 transition-all">রেজিস্ট্রেশন</button>
+        </div>
+
+        <div id="login-form">
+            <h2 class="text-2xl font-bold text-gray-800 mb-2">স্বাগতম!</h2>
+            <p class="text-gray-500 mb-6 text-sm">আপনার অ্যাকাউন্ট এ প্রবেশ করুন।</p>
+            <form class="space-y-4" onsubmit="handleLogin(event)">
+                <input type="tel" id="login-phone" placeholder="মোবাইল নম্বর" class="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none" required>
+                <input type="password" id="login-password" placeholder="পাসওয়ার্ড" class="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none" required>
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg">লগইন করুন</button>
+            </form>
+        </div>
+
+        <div id="register-form" class="hidden">
+            <h2 class="text-2xl font-bold text-gray-800 mb-2">নতুন অ্যাকাউন্ট</h2>
+            <p class="text-gray-500 mb-6 text-sm">সঠিক তথ্য দিয়ে রেজিস্ট্রেশন সম্পন্ন করুন।</p>
+            <form class="space-y-4" onsubmit="handleRegister(event)">
+                <input type="text" id="reg-name" placeholder="পূর্ণ নাম" class="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none" required>
+                <input type="tel" id="reg-phone" placeholder="মোবাইল নম্বর" class="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none" required>
+                <input type="password" id="reg-password" placeholder="নতুন পাসওয়ার্ড" class="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none" required>
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl shadow-lg">রেজিস্ট্রেশন করুন</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="dashboard" class="hidden w-full max-w-4xl min-h-screen">
+        <div class="glass p-6 rounded-3xl shadow-xl mb-6 flex flex-col items-center justify-center text-center mt-4 mx-2">
+            <p class="text-gray-500 text-sm font-semibold uppercase tracking-wider">বর্তমান ব্যালেন্স</p>
+            <h1 id="user-balance" class="text-4xl font-bold text-blue-600 mt-1">৳ ০.০০</h1>
+            <div class="mt-2 flex gap-2">
+                <span id="user-status" class="bg-green-100 text-green-600 text-xs px-3 py-1 rounded-full font-bold">সক্রিয় অ্যাকাউন্ট</span>
+                <button onclick="handleLogout()" class="bg-red-100 text-red-600 text-xs px-3 py-1 rounded-full font-bold">লগআউট</button>
+            </div>
+        </div>
+
+        <div id="home-section" class="mt-4 px-2">
+            <h2 class="text-xl font-bold text-white mb-4 px-2">আমাদের সার্ভিস সমূহ</h2>
+            <div id="product-list" class="grid grid-cols-2 md:grid-cols-3 gap-4 pb-24"></div>
+        </div>
+
+        <div id="history-section" class="hidden mt-4 px-2 pb-24">
+            <div class="glass p-6 rounded-3xl shadow-xl">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">লেনদেন ইতিহাস</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead><tr class="border-b border-gray-100"><th class="pb-3 text-gray-600">তারিখ</th><th class="pb-3 text-gray-600">বিবরণ</th><th class="pb-3 text-gray-600">পরিমাণ</th></tr></thead>
+                        <tbody id="history-table-body" class="text-gray-700"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="deposit-section" class="hidden mt-4 px-4 pb-24">
+            <div class="glass p-8 rounded-3xl shadow-xl text-center">
+                <h2 class="text-2xl font-bold text-gray-800 mb-2">ডিপোজিট করুন</h2>
+                <input type="number" id="deposit-amount" placeholder="০০.০০" class="w-full px-4 py-4 rounded-2xl border-2 border-gray-100 outline-none text-center text-3xl font-bold text-gray-800 mb-4">
+                <button onclick="handleDeposit()" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-4 rounded-2xl">ডিপোজিট রিকোয়েস্ট পাঠান</button>
+            </div>
+        </div>
+
+        <div class="bottom-nav">
+            <button onclick="showSection('home')" id="home-btn" class="flex flex-col items-center text-blue-600"><span class="text-xl">🏠</span><span class="text-[10px] font-bold">হোম</span></button>
+            <button onclick="showSection('history')" id="history-btn" class="flex flex-col items-center text-gray-500"><span class="text-xl">📜</span><span class="text-[10px] font-bold">হিস্টরি</span></button>
+            <button onclick="showSection('deposit')" id="deposit-btn" class="flex flex-col items-center text-gray-500"><span class="text-xl">💳</span><span class="text-[10px] font-bold">ডিপোজিট</span></button>
+        </div>
+    </div>
+
+    <div id="purchase-modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-[2000] flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-xs rounded-3xl p-6 shadow-2xl">
+            <h3 id="modal-product-name" class="text-xl font-bold text-gray-800"></h3>
+            <p id="modal-product-price" class="text-blue-600 font-bold text-lg mb-4"></p>
+            <input type="text" id="order-note" placeholder="আপনার আইডি/প্রয়োজনীয় তথ্য দিন..." class="w-full px-4 py-3 rounded-xl border border-gray-200 mb-4 outline-none">
+            <div class="flex gap-2">
+                <button onclick="closeModal()" class="w-1/2 bg-gray-100 py-3 rounded-xl font-bold text-gray-600">বাতিল</button>
+                <button onclick="confirmOrder()" class="w-1/2 bg-blue-600 py-3 rounded-xl font-bold text-white">অর্ডার কনফার্ম</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyCkDpY2jbRPzN42HCQPvgV-V0Aum2KmP7g",
+            authDomain: "sb-sheba.firebaseapp.com",
+            databaseURL: "https://sb-sheba-default-rtdb.firebaseio.com",
+            projectId: "sb-sheba",
+            storageBucket: "sb-sheba.firebasestorage.app",
+            messagingSenderId: "146374779443",
+            appId: "1:146374779443:android:1ec1db5f6ce1fa5aad7946"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.database();
+
+        let currentUserPhone = null;
+        let selectedProduct = null;
+
+        // --- ১. অটো-লগইন চেক (Auth State Observer) ---
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                const phone = user.email.split('@')[0];
+                loginUser(phone);
+            } else {
+                document.getElementById('auth-container').classList.remove('hidden');
+                document.getElementById('dashboard').classList.add('hidden');
+                document.body.classList.add('items-center', 'justify-center');
+            }
+        });
+
+        // --- Auth Logic ---
+        function handleRegister(e) {
+            e.preventDefault();
+            const name = document.getElementById('reg-name').value;
+            const phone = document.getElementById('reg-phone').value;
+            const pass = document.getElementById('reg-password').value;
+            const email = phone + "@sbsheba.com";
+
+            auth.createUserWithEmailAndPassword(email, pass).then(() => {
+                db.ref('users/' + phone).set({
+                    name: name,
+                    phone: phone,
+                    balance: 0,
+                    status: 'Active',
+                    createdAt: new Date().toLocaleDateString('bn-BD')
+                });
+                alert("রেজিস্ট্রেশন সফল হয়েছে!");
+            }).catch(error => alert("রেজিস্ট্রেশন ব্যর্থ: " + error.message));
+        }
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const phone = document.getElementById('login-phone').value;
+            const pass = document.getElementById('login-password').value;
+            const email = phone + "@sbsheba.com";
+
+            // সেশন যেন ব্রাউজার বন্ধ করলেও না যায়
+            auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+                .then(() => {
+                    return auth.signInWithEmailAndPassword(email, pass);
+                })
+                .catch(error => alert("ভুল মোবাইল নম্বর অথবা পাসওয়ার্ড!"));
+        }
+
+        function handleLogout() {
+            auth.signOut().then(() => {
+                location.reload();
+            });
+        }
+
+        function loginUser(phone) {
+            currentUserPhone = phone;
+            document.getElementById('auth-container').classList.add('hidden');
+            document.getElementById('dashboard').classList.remove('hidden');
+            document.body.classList.remove('items-center', 'justify-center');
+            
+            db.ref('users/' + phone).on('value', (snapshot) => {
+                const data = snapshot.val();
+                if(data) {
+                    document.getElementById('user-balance').innerText = "৳ " + data.balance.toFixed(2);
+                }
+            });
+
+            loadProducts();
+            loadHistory();
+            showSection('home');
+        }
+
+        // --- Core Functions ---
+        function loadProducts() {
+            const productList = document.getElementById('product-list');
+            db.ref('products').on('value', (snapshot) => {
+                productList.innerHTML = '';
+                const data = snapshot.val();
+                for (let id in data) {
+                    const product = data[id];
+                    productList.innerHTML += `
+                        <div onclick="openModal('${product.name}', ${product.price})" class="product-card glass p-4 rounded-2xl shadow-md flex flex-col items-center text-center">
+                            <div class="text-3xl mb-2">📦</div>
+                            <h3 class="text-sm font-bold text-gray-800">${product.name}</h3>
+                            <p class="text-blue-600 font-bold mt-1">৳${product.price}</p>
+                        </div>`;
+                }
+            });
+        }
+
+        function loadHistory() {
+            const tableBody = document.getElementById('history-table-body');
+            db.ref('history/' + currentUserPhone).on('value', (snapshot) => {
+                tableBody.innerHTML = '';
+                const data = snapshot.val();
+                if(!data) return;
+                const items = Object.values(data).reverse(); 
+                items.forEach(item => {
+                    tableBody.innerHTML += `
+                        <tr class="border-b border-gray-50">
+                            <td class="py-3 text-[10px] text-gray-400">${item.date}</td>
+                            <td class="py-3 font-medium">${item.type}</td>
+                            <td class="py-3 ${item.amount > 0 ? 'text-green-600' : 'text-red-600'} font-bold">৳${Math.abs(item.amount)}</td>
+                        </tr>`;
+                });
+            });
+        }
+
+        function openModal(name, price) {
+            selectedProduct = { name, price };
+            document.getElementById('modal-product-name').innerText = name;
+            document.getElementById('modal-product-price').innerText = "৳ " + price;
+            document.getElementById('purchase-modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('purchase-modal').classList.add('hidden');
+            document.getElementById('order-note').value = '';
+        }
+
+        // --- ২. ব্যালেন্স আপডেট এবং হিস্টরি সংরক্ষণ ---
+        async function confirmOrder() {
+            const note = document.getElementById('order-note').value;
+            if(!note) return alert("প্রয়োজনীয় তথ্য দিন!");
+
+            const userRef = db.ref('users/' + currentUserPhone);
+            
+            userRef.once('value').then((snapshot) => {
+                const userData = snapshot.val();
+                const currentBalance = userData.balance || 0;
+
+                if (currentBalance < selectedProduct.price) {
+                    alert("আপনার ব্যালেন্স কম! দয়া করে আগে ডিপোজিট করুন।");
+                    return;
+                }
+
+                const newBalance = currentBalance - selectedProduct.price;
+
+                userRef.update({ balance: newBalance }).then(() => {
+                    const historyRef = db.ref('history/' + currentUserPhone).push();
+                    historyRef.set({
+                        date: new Date().toLocaleString('bn-BD'),
+                        type: "অর্ডার: " + selectedProduct.name,
+                        amount: -selectedProduct.price
+                    });
+
+                    const whatsappNumber = "8801773729972";
+                    const msg = `✅ নতুন অর্ডার!\nসার্ভিস: ${selectedProduct.name}\nদাম: ৳${selectedProduct.price}\nইউজার: ${currentUserPhone}\nনোট: ${note}\nঅবশিষ্ট ব্যালেন্স: ৳${newBalance.toFixed(2)}`;
+                    
+                    alert("অর্ডার সফল!");
+                    window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(msg)}`, '_blank');
+                    closeModal();
+                });
+            });
+        }
+
+        function handleDeposit() {
+            const amount = document.getElementById('deposit-amount').value;
+            if (amount < 100) return alert("সর্বনিম্ন ১০০ টাকা!");
+            const whatsappNumber = "8801773729972";
+            const msg = `💳 হ্যালো! এডমিন আমি ডিপোজিট করতে চাই!\nপরিমাণ: ${amount} টাকা\nইউজার মোবাইল: ${currentUserPhone}\n(ধন্যবাদ )`;
+            window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(msg)}`, '_blank');
+        }
+
+        function toggleForm(type) {
+            document.getElementById('login-form').classList.toggle('hidden', type === 'register');
+            document.getElementById('register-form').classList.toggle('hidden', type === 'login');
+            document.getElementById('login-tab').className = type === 'login' ? "w-1/2 py-2 text-sm font-semibold rounded-lg bg-white shadow-sm text-blue-600" : "w-1/2 py-2 text-sm font-semibold rounded-lg text-gray-500";
+            document.getElementById('register-tab').className = type === 'register' ? "w-1/2 py-2 text-sm font-semibold rounded-lg bg-white shadow-sm text-blue-600" : "w-1/2 py-2 text-sm font-semibold rounded-lg text-gray-500";
+        }
+
+        function showSection(section) {
+            ['home', 'history', 'deposit'].forEach(s => {
+                const el = document.getElementById(s + '-section');
+                const btn = document.getElementById(s + '-btn');
+                if(el) el.classList.toggle('hidden', s !== section);
+                if(btn) {
+                    btn.classList.toggle('text-blue-600', s === section);
+                    btn.classList.toggle('text-gray-500', s !== section);
+                }
+            });
+        }
+    </script>
+</body>
+</html>
