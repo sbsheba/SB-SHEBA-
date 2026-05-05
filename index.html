@@ -278,7 +278,7 @@
 
         function handleDeposit() {
             const amount = document.getElementById('deposit-amount').value;
-            if (amount < 100) return alert("সর্বনিম্ন ১০০ টাকা!");
+            if (amount < 300) return alert("সর্বনিম্ন ৩০০ টাকা!");
             const whatsappNumber = "8801773729972";
             const msg = `💳 হ্যালো! এডমিন আমি ডিপোজিট করতে চাই!\nপরিমাণ: ${amount} টাকা\nইউজার মোবাইল: ${currentUserPhone}\n(ধন্যবাদ )`;
             window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(msg)}`, '_blank');
